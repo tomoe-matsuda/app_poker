@@ -1,0 +1,39 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ルームコレクション
+    match /rooms/{roomId} {
+      // 誰でも読み取り可能
+      allow read: if true;
+      
+      // 新規作成: 誰でも可能（参加人数の制限チェック）
+      allow create: if request.resource.data.maxParticipants >= 1
+                    && request.resource.data.maxParticipants <= 20
+                    && request.resource.data.participants is list
+                    && request.resource.data.participants.size() == 0;
+      
+      // 更新: 参加者の追加、投票、タスク設定など
+      allow update: if true;
+      
+      // 削除は不可
+      allow delete: if false;
+    }
+    
+    // 投票履歴コレクション
+    match /voteHistory/{historyId} {
+      // 誰でも読み取り可能
+      allow read: if true;
+      
+      // 誰でも作成可能（ルームIDが必須）
+      allow create: if request.resource.data.roomId is string
+                    && request.resource.data.taskName is string
+                    && request.resource.data.finalPoint is number;
+      
+      // 更新・削除は不可
+      allow update: if false;
+      allow delete: if false;
+    }
+  }
+}
