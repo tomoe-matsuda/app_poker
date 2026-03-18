@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Crown, Users, Plus, Copy, Check, Link } from "lucide-react";
 import { createRoom, checkRoomExists, extractRoomIdFromUrl, checkRoomAndJoin } from "@/lib/room";
 
@@ -9,7 +9,6 @@ type Mode = "initial" | "host" | "participant";
 
 export default function Home() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("initial");
   const [participantCount, setParticipantCount] = useState<string>("4");
   const [isCreating, setIsCreating] = useState(false);
@@ -22,7 +21,10 @@ export default function Home() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const joinParam = searchParams.get("join");
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const joinParam = params.get("join");
     if (!joinParam) return;
 
     const normalizedJoinValue = joinParam.trim();
@@ -38,7 +40,7 @@ export default function Home() {
     setMode("participant");
     setRoomUrlInput(roomUrl);
     setError("");
-  }, [searchParams]);
+  }, []);
 
   const handleCreateRoom = async () => {
     const count = parseInt(participantCount, 10);
