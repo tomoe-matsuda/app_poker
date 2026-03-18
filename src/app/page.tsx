@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Crown, Users, Plus, Copy, Check, Link } from "lucide-react";
 import { createRoom, checkRoomExists, extractRoomIdFromUrl, checkRoomAndJoin } from "@/lib/room";
 
@@ -9,6 +9,7 @@ type Mode = "initial" | "host" | "participant";
 
 export default function Home() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("initial");
   const [participantCount, setParticipantCount] = useState<string>("4");
   const [isCreating, setIsCreating] = useState(false);
@@ -19,6 +20,25 @@ export default function Home() {
   const [userName, setUserName] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const joinParam = searchParams.get("join");
+    if (!joinParam) return;
+
+    const normalizedJoinValue = joinParam.trim();
+    if (!normalizedJoinValue) return;
+
+    const roomId = extractRoomIdFromUrl(normalizedJoinValue);
+    if (!roomId) return;
+
+    const roomUrl = typeof window !== "undefined"
+      ? `${window.location.origin}/room/${roomId}`
+      : normalizedJoinValue;
+
+    setMode("participant");
+    setRoomUrlInput(roomUrl);
+    setError("");
+  }, [searchParams]);
 
   const handleCreateRoom = async () => {
     const count = parseInt(participantCount, 10);
@@ -45,7 +65,8 @@ export default function Home() {
 
   const handleCopyUrl = async () => {
     if (!createdRoomUrl) return;
-    await navigator.clipboard.writeText(createdRoomUrl);
+    const inviteUrl = `${window.location.origin}/?join=${encodeURIComponent(createdRoomUrl)}`;
+    await navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
