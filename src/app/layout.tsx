@@ -9,7 +9,7 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: "Design Story Point",
-  description: "デザイナー向けプランニングポーカー",
+  description: "クイックなプランニングポーカー",
 };
 
 export default function RootLayout({

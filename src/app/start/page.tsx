@@ -25,19 +25,29 @@ export default function StartPage() {
 
     const params = new URLSearchParams(window.location.search);
     const joinParam = params.get("join");
-    if (!joinParam) return;
 
-    const normalizedJoinValue = joinParam.trim();
-    if (!normalizedJoinValue) return;
+    if (joinParam) {
+      const normalizedJoinValue = joinParam.trim();
+      if (normalizedJoinValue) {
+        const roomId = extractRoomIdFromUrl(normalizedJoinValue);
+        if (roomId) {
+          const roomUrl = `${window.location.origin}/room/${roomId}`;
+          setMode("participant");
+          setRoomUrlInput(roomUrl);
+          setError("");
+        }
+      }
+      return;
+    }
 
-    const roomId = extractRoomIdFromUrl(normalizedJoinValue);
-    if (!roomId) return;
-
-    const roomUrl = typeof window !== "undefined" ? `${window.location.origin}/room/${roomId}` : normalizedJoinValue;
-
-    setMode("participant");
-    setRoomUrlInput(roomUrl);
-    setError("");
+    const modeParam = params.get("mode");
+    if (modeParam === "host") {
+      setMode("host");
+      setError("");
+    } else if (modeParam === "join") {
+      setMode("participant");
+      setError("");
+    }
   }, []);
 
   const handleCreateRoom = async () => {
@@ -145,6 +155,7 @@ export default function StartPage() {
     setUserName("");
     setRoomUrlInput("");
     setError("");
+    router.replace("/start");
   };
 
   return (
@@ -153,7 +164,7 @@ export default function StartPage() {
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)]">Design Story Point</h1>
           <p className="text-lg text-[var(--muted-foreground)]">
-            デザイナーのための
+            クイックな
             <br />
             プランニングポーカー
           </p>
@@ -163,13 +174,17 @@ export default function StartPage() {
 
         {mode === "initial" && (
           <div className="space-y-4">
-            <button onClick={() => setMode("host")} className="btn-primary w-full flex items-center justify-center gap-3">
+            <button type="button" onClick={() => setMode("host")} className="btn-primary flex w-full items-center justify-center gap-3 rounded-full py-2.5">
               <Crown size={20} />
-              ホストとして参加
+              ルームを発行
             </button>
-            <button onClick={() => setMode("participant")} className="btn-secondary w-full flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => setMode("participant")}
+              className="btn-secondary flex w-full items-center justify-center gap-3 rounded-full py-2.5"
+            >
               <Users size={20} />
-              参加者として参加
+              ルームに参加
             </button>
           </div>
         )}
@@ -197,7 +212,7 @@ export default function StartPage() {
 
                   <button onClick={handleCreateRoom} disabled={isCreating} className="btn-primary w-full flex items-center justify-center gap-3">
                     <Plus size={20} strokeWidth={2.5} />
-                    {isCreating ? "作成中..." : "新しいルームを作成"}
+                    {isCreating ? "発行中..." : "新しいルームを発行"}
                   </button>
                 </div>
               </div>
@@ -281,7 +296,7 @@ export default function StartPage() {
           </div>
         )}
 
-        <p className="text-center text-caption">フィボナッチ数列でデザインタスクを見積もろう</p>
+        <p className="text-center text-caption">フィボナッチ数列でタスクの重さを見積もろう</p>
       </div>
     </main>
   );
