@@ -8,7 +8,9 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-const gaId = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
+/** GA4 の測定 ID（G-）。Vercel ではどちらか一方が入っていればタグを出す */
+const gaId =
+  process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID ?? process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID;
 
 export const metadata: Metadata = {
   title: "Design Story Point",
