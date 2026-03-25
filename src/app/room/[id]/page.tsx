@@ -139,8 +139,7 @@ export default function RoomPage({ params }: RoomPageProps) {
   };
 
   const handleCopyRoomUrl = async () => {
-    const roomUrl = `${window.location.origin}/room/${roomId}`;
-    const inviteUrl = `${window.location.origin}/?join=${encodeURIComponent(roomUrl)}`;
+    const inviteUrl = `${window.location.origin}/start?join=${roomId}`;
     await navigator.clipboard.writeText(inviteUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);

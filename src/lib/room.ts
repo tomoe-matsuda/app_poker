@@ -244,12 +244,17 @@ export function getLocalParticipantName(roomId: string): string | null {
 
 export function extractRoomIdFromUrl(input: string): string {
   const trimmed = input.trim();
-  
+
   const urlMatch = trimmed.match(/\/room\/([A-Z0-9]{6})(?:\/|$|\?)/i);
   if (urlMatch) {
     return urlMatch[1].toUpperCase();
   }
-  
+
+  const startJoinMatch = trimmed.match(/[?&]join=([A-Z0-9]{6})/i);
+  if (startJoinMatch) {
+    return startJoinMatch[1].toUpperCase();
+  }
+
   const idMatch = trimmed.match(/^[A-Z0-9]{6}$/i);
   if (idMatch) {
     return trimmed.toUpperCase();

@@ -31,9 +31,10 @@ service cloud.firestore {
                     && request.resource.data.taskName is string
                     && request.resource.data.finalPoint is number;
       
-      // 更新・削除は不可
+      // 更新は不可（履歴は確定後に変更しない）
       allow update: if false;
-      allow delete: if false;
+      // やり直し（retry）時のみクライアントから削除する想定。本番では Cloud Functions や認証と組み合わせて絞るのが望ましい
+      allow delete: if true;
     }
   }
 }

@@ -43,7 +43,7 @@ const howToSlides = [
   },
 ];
 
-export default function Home() {
+export function LpHomeClient() {
   const [currentSlide, setCurrentSlide] = useState(0);
   const current = howToSlides[currentSlide];
   const CurrentIcon = current.Icon;
@@ -55,13 +55,18 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-[#fffdfa] pt-28 text-[var(--foreground)] md:pt-32">
       <header className="fixed inset-x-0 top-0 z-50 border-b border-[#efe6e0] bg-[#fffdfa]/95 backdrop-blur-sm">
-        <div className="lp-shell lp-header flex items-center justify-between">
+        <div className="lp-shell lp-header flex flex-wrap items-center justify-between gap-3">
           <p className="rounded-full border border-[#efe6e0] bg-white px-3 py-1.5 text-sm font-semibold tracking-tight">
             Design Story Point
           </p>
-          <Link href="/start" className="btn-primary rounded-full px-5 py-2 text-sm">
-            無料で始める
-          </Link>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link href="/start?mode=join" className="rounded-full px-4 py-2 text-sm text-[var(--foreground)] hover:opacity-80">
+              ルームに参加
+            </Link>
+            <Link href="/start?mode=host" className="btn-primary rounded-full px-5 py-2 text-sm">
+              ルームを発行
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -119,8 +124,8 @@ export default function Home() {
                 </button>
               </div>
 
-              <Link href="/start" className="btn-primary mt-1 block rounded-full text-center text-sm">
-                無料でお試し
+              <Link href="/start?mode=host" className="btn-primary mt-1 block rounded-full text-center text-sm">
+                ルームを発行（無料）
               </Link>
             </div>
           </div>
@@ -132,7 +137,7 @@ export default function Home() {
           </div>
           <h2 className="section-title">Story Pointで相対評価する</h2>
           <p className="text-body max-w-3xl text-[var(--muted-foreground)]">
-          複雑さや不確実性を相対的に評価。チーム全員の認識差を減らし、納得感のある意思決定を短時間で進められます。
+            複雑さや不確実性を相対的に評価。チーム全員の認識差を減らし、納得感のある意思決定を短時間で進められます。
           </p>
         </section>
 
@@ -152,9 +157,14 @@ export default function Home() {
           <div className="rounded-3xl border border-[#efe6e0] bg-[#fff4ef] p-6">
             <h2 className="section-title">今すぐ開始</h2>
             <p className="text-caption">最短30秒で、最初の見積もりセッションを始められます。</p>
-            <Link href="/start" className="btn-primary mt-5 inline-flex rounded-full text-sm">
-              無料で始める
-            </Link>
+            <div className="mt-5 flex flex-wrap items-center gap-3">
+              <Link href="/start?mode=host" className="btn-primary inline-flex rounded-full text-sm">
+                ルームを発行
+              </Link>
+              <Link href="/start?mode=join" className="rounded-full border border-[#efe6e0] bg-white px-5 py-2 text-sm hover:bg-[#fff9f6]">
+                ルームに参加
+              </Link>
+            </div>
           </div>
         </section>
       </div>
@@ -163,8 +173,12 @@ export default function Home() {
         <div className="flex flex-col gap-2 text-xs text-[var(--muted-foreground)] md:flex-row md:items-center md:justify-between">
           <p>© {new Date().getFullYear()} Design Story Point</p>
           <div className="flex items-center gap-4">
-            <a href="#" className="link-muted">Privacy</a>
-            <a href="#" className="link-muted">Terms</a>
+            <a href="#" className="link-muted">
+              Privacy
+            </a>
+            <a href="#" className="link-muted">
+              Terms
+            </a>
           </div>
         </div>
       </footer>

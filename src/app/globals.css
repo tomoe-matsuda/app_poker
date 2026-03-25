@@ -5,9 +5,9 @@
      Color Tokens
      =========================================== */
   --background: #ffffff;
-  --foreground: #1a1a1a;
+  --foreground: #182033;
   --muted: #f5f5f5;
-  --muted-foreground: #6b7280;
+  --muted-foreground: #3f4c68;
   --border: #e5e5e5;
   --shadow: rgba(0, 0, 0, 0.04);
   --shadow-hover: rgba(0, 0, 0, 0.08);
@@ -309,4 +309,117 @@ body {
   border-radius: 0.75rem;
   background: var(--foreground);
   color: var(--background);
+}
+
+/* ===========================================
+  LP-only Layout Spacing
+  =========================================== */
+
+.lp-shell {
+  width: 100%;
+  max-width: 70rem;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+.lp-header {
+  padding-top: 1.25rem;
+  padding-bottom: 1.25rem;
+}
+
+.lp-main {
+  padding-top: 0.5rem;
+  padding-bottom: 4rem;
+}
+
+.lp-hero {
+  margin-bottom: 2.5rem;
+}
+
+.lp-section {
+  margin-bottom: 2rem;
+}
+
+.lp-section-lg {
+  margin-bottom: 2.75rem;
+}
+
+.lp-section:last-child,
+.lp-section-lg:last-child {
+  margin-bottom: 0;
+}
+
+.lp-copy-frame {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.lp-copy-frame::before,
+.lp-copy-frame::after {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  background: var(--foreground);
+  opacity: 0.5;
+}
+
+.lp-problem-bubble {
+  position: relative;
+  display: inline-block;
+  border: 1px solid rgba(24, 32, 51, 0.24);
+  border-radius: 999px;
+  background: #ffffff;
+  padding: 0.5rem 0.9rem;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-normal);
+  color: var(--foreground);
+}
+
+.lp-problem-bubble::after {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  bottom: -0.34rem;
+  width: 0.62rem;
+  height: 0.62rem;
+  border-right: 1px solid rgba(24, 32, 51, 0.24);
+  border-bottom: 1px solid rgba(24, 32, 51, 0.24);
+  background: #ffffff;
+  transform: rotate(45deg);
+}
+
+@media (min-width: 768px) {
+  .lp-shell {
+    padding-inline: 2rem;
+  }
+
+  .lp-header {
+    padding-top: 1.75rem;
+    padding-bottom: 1.75rem;
+  }
+
+  .lp-main {
+    padding-top: 0.75rem;
+    padding-bottom: 5.5rem;
+  }
+
+  .lp-hero {
+    margin-bottom: 3.75rem;
+  }
+
+  .lp-section {
+    margin-bottom: 2.75rem;
+  }
+
+  .lp-section-lg {
+    margin-bottom: 3.5rem;
+  }
+
+  .lp-copy-frame::before,
+  .lp-copy-frame::after {
+    width: 2.4rem;
+  }
 }
