@@ -7,6 +7,20 @@ import { createRoom, checkRoomExists, extractRoomIdFromUrl, checkRoomAndJoin } f
 
 type Mode = "initial" | "host" | "participant";
 
+/** Firestore / Firebase のエラーを画面向けに短く説明する */
+function friendlyFirestoreError(err: unknown, fallback: string): string {
+  if (typeof err === "object" && err !== null && "code" in err) {
+    const code = String((err as { code: string }).code);
+    if (code === "permission-denied") {
+      return "データベースへの書き込みが拒否されています。Firebaseコンソール → Firestore Database → ルールで、リポジトリの firestore.rules と同じ内容を公開してください。";
+    }
+    if (code === "failed-precondition" || code === "unavailable") {
+      return "Firestore を利用できません。Firebaseコンソールで Firestore データベースを作成し、有効化してください。";
+    }
+  }
+  return fallback;
+}
+
 export default function StartPage() {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>("initial");
@@ -66,7 +80,7 @@ export default function StartPage() {
       setCreatedRoomId(newRoomId);
       setCreatedRoomUrl(roomUrl);
     } catch (err) {
-      setError("ルームの作成に失敗しました");
+      setError(friendlyFirestoreError(err, "ルームの作成に失敗しました"));
       console.error(err);
     } finally {
       setIsCreating(false);
@@ -102,7 +116,7 @@ export default function StartPage() {
         setError(result.error || "ルームへの参加に失敗しました");
       }
     } catch (err) {
-      setError("ルームへの参加に失敗しました");
+      setError(friendlyFirestoreError(err, "ルームへの参加に失敗しました"));
       console.error(err);
     } finally {
       setIsJoining(false);
@@ -141,7 +155,7 @@ export default function StartPage() {
         setError(result.error || "ルームへの参加に失敗しました");
       }
     } catch (err) {
-      setError("ルームへの参加に失敗しました");
+      setError(friendlyFirestoreError(err, "ルームへの参加に失敗しました"));
       console.error(err);
     } finally {
       setIsJoining(false);
