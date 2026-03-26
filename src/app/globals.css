@@ -9,8 +9,18 @@
   --muted: #f5f5f5;
   --muted-foreground: #3f4c68;
   --border: #e5e5e5;
+  /* LP / マーケページとアプリ背景の統一 */
+  --lp-bg: #fffdfa;
+  --lp-border: #efe6e0;
+  --lp-muted-card: #fff4ef;
   --shadow: rgba(0, 0, 0, 0.04);
   --shadow-hover: rgba(0, 0, 0, 0.08);
+
+  /* Notion 連携ボタン（ルームヘッダー等） */
+  --notion-cta-bg: #fbbf24;
+  --notion-cta-bg-hover: #f59e0b;
+  --notion-cta-fg: #422006;
+  --notion-cta-border: #d97706;
 
   /* ===========================================
      Spacing Tokens
@@ -73,9 +83,31 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans);
+  font-family: var(--font-inter, var(--font-sans));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* キーボード操作時の可視フォーカス（マウスクリックのみの :focus-visible） */
+:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.btn-primary:focus-visible,
+.btn-secondary:focus-visible,
+.btn-notion-cta:focus-visible {
+  outline-color: var(--foreground);
+}
+
+/* ルーム: 決定ポイントのセレクトを強調 */
+.select-decision-point {
+  background-color: #fef9c3 !important;
+  border-color: #ca8a04 !important;
+  color: var(--foreground);
+  font-weight: 700;
+  font-size: 1.125rem;
+  min-height: 3rem;
 }
 
 /* Card Component */
@@ -223,6 +255,38 @@ body {
 
 .btn-secondary:active {
   transform: scale(0.98);
+}
+
+/* Notion CTA — ルームの「Notion連携」など */
+.btn-notion-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  background: var(--notion-cta-bg);
+  color: var(--notion-cta-fg);
+  border: 1.5px solid var(--notion-cta-border);
+  border-radius: 9999px;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.2;
+  box-shadow: 0 1px 2px var(--shadow);
+  transition: background 0.2s ease, transform 0.1s ease;
+  min-height: 1.75rem;
+}
+
+.btn-notion-cta:hover:not(:disabled) {
+  background: var(--notion-cta-bg-hover);
+}
+
+.btn-notion-cta:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-notion-cta:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Input Field */

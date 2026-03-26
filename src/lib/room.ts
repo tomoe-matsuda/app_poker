@@ -137,14 +137,24 @@ export function subscribeToRoom(
 export async function updateTask(
   roomId: string,
   taskName: string,
-  figmaUrl?: string
+  figmaUrl?: string,
+  notionPageId?: string
 ): Promise<void> {
   const roomRef = doc(db, "rooms", roomId);
+  const currentTask: Record<string, unknown> = {
+    id: `task_${Date.now()}`,
+    name: taskName,
+    figmaUrl: figmaUrl || null,
+  };
+  if (notionPageId) {
+    currentTask.notionPageId = notionPageId;
+  }
   await updateDoc(roomRef, {
-    currentTask: {
-      id: `task_${Date.now()}`,
-      name: taskName,
-      figmaUrl: figmaUrl || null,
+    currentTask: currentTask as {
+      id: string;
+      name: string;
+      figmaUrl: string | null;
+      notionPageId?: string;
     },
     isVotingOpen: true,
   });

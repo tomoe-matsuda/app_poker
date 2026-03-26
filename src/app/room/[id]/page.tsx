@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, use } from "react";
+import { useCallback, useEffect, useState, use } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Copy, Check, ExternalLink, RotateCcw, Eye, CircleCheckBig, Users, Crown } from "lucide-react";
+import { Copy, Check, ExternalLink, RotateCcw, Eye, CircleCheckBig, Users, Crown, Database } from "lucide-react";
 import { PointCard } from "@/components/PointCard";
 import { VoteHistoryLog } from "@/components/VoteHistoryLog";
+import { NotionRoomConnectModal } from "@/components/NotionRoomConnectModal";
 import {
   subscribeToRoom,
   updateTask,
@@ -20,6 +22,8 @@ import {
   retryTask,
   deleteVoteHistory,
 } from "@/lib/room";
+import { trackEvent } from "@/lib/analytics";
+import { loadNotionRoomMeta } from "@/lib/notion-room-meta";
 import { FIBONACCI_POINTS, type Room, type FibonacciPoint, type VoteHistory } from "@/types";
 
 interface RoomPageProps {
@@ -46,6 +50,41 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [participantId, setParticipantId] = useState<string | null>(null);
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([]);
   const [myName, setMyName] = useState<string>("");
+
+  const [notionModalOpen, setNotionModalOpen] = useState(false);
+  const [linkedNotionPageId, setLinkedNotionPageId] = useState<string | null>(null);
+  const [notionPushHint, setNotionPushHint] = useState<string | null>(null);
+  const [premiumFlags, setPremiumFlags] = useState({ premium: false, notionOAuth: false });
+
+  const refreshPremium = useCallback(async () => {
+    try {
+      const r = await fetch("/api/premium/status", { credentials: "include" });
+      const data = (await r.json()) as { premium?: boolean; notionOAuth?: boolean };
+      setPremiumFlags({
+        premium: Boolean(data.premium),
+        notionOAuth: Boolean(data.notionOAuth),
+      });
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshPremium();
+  }, [refreshPremium]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get("notion_oauth_ok") === "1") {
+      void refreshPremium();
+      window.history.replaceState({}, "", `/room/${roomId}`);
+    }
+  }, [roomId, refreshPremium]);
+
+  useEffect(() => {
+    if (notionModalOpen) void refreshPremium();
+  }, [notionModalOpen, refreshPremium]);
 
   useEffect(() => {
     const storedId = getLocalParticipantId(roomId);
@@ -123,6 +162,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         const newParticipantId = getLocalParticipantId(roomId);
         setParticipantId(newParticipantId);
         setHasJoined(true);
+        trackEvent("room_join", { room_id: roomId, as_host: asHost });
         if (asHost && typeof window !== "undefined") {
           localStorage.setItem(`room_${roomId}_isHost`, "true");
           setIsHostJoin(true);
@@ -147,8 +187,15 @@ export default function RoomPage({ params }: RoomPageProps) {
 
   const handleStartVoting = async () => {
     if (!taskName.trim()) return;
-    await updateTask(roomId, taskName.trim(), figmaUrl.trim() || undefined);
+    await updateTask(
+      roomId,
+      taskName.trim(),
+      figmaUrl.trim() || undefined,
+      linkedNotionPageId || undefined
+    );
+    setLinkedNotionPageId(null);
     setFinalPoint(null);
+    setNotionPushHint(null);
   };
 
   const handleVote = async (point: FibonacciPoint) => {
@@ -170,6 +217,9 @@ export default function RoomPage({ params }: RoomPageProps) {
   const handleSaveResult = async () => {
     if (!room || !room.currentTask || finalPoint === null || !participantId) return;
 
+    const notionPageId = room.currentTask.notionPageId;
+    const savedPoint = finalPoint;
+
     await saveVoteHistory(
       roomId,
       room.currentTask.name,
@@ -183,10 +233,47 @@ export default function RoomPage({ params }: RoomPageProps) {
     setFigmaUrl("");
     setFinalPoint(null);
     await clearCurrentTask(roomId);
+    trackEvent("vote_result_saved", {
+      room_id: roomId,
+      story_points: finalPoint,
+    });
+
+    setNotionPushHint(null);
+    if (notionPageId && typeof window !== "undefined") {
+      try {
+        const stRes = await fetch("/api/premium/status", { credentials: "include" });
+        const st = (await stRes.json()) as { premium?: boolean; notionOAuth?: boolean };
+        const notionLive = process.env.NEXT_PUBLIC_PREMIUM_NOTION_LIVE === "true";
+        if (notionLive && st.premium && st.notionOAuth) {
+          const meta = loadNotionRoomMeta(roomId);
+          if (meta?.pointsProperty) {
+            const res = await fetch("/api/notion/oauth/set-points", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                pageId: notionPageId,
+                pointsProperty: meta.pointsProperty,
+                value: savedPoint,
+              }),
+            });
+            const data = (await res.json()) as { ok?: boolean; message?: string };
+            if (data.ok) {
+              setNotionPushHint("Notion のストーリーポイント列も更新しました（OAuth）。");
+            } else {
+              setNotionPushHint(`Notion OAuth 更新をスキップ: ${data.message ?? res.status}`);
+            }
+          }
+        }
+      } catch {
+        setNotionPushHint("Notion 更新の通信に失敗しました。");
+      }
+    }
   };
 
   const handleDownloadCSV = () => {
     const date = new Date().toISOString().split("T")[0];
+    trackEvent("csv_download", { room_id: roomId, row_count: voteHistory.length });
     downloadCSV(voteHistory, `design-story-point_${roomId}_${date}.csv`);
   };
 
@@ -214,17 +301,17 @@ export default function RoomPage({ params }: RoomPageProps) {
 
   if (loading) {
     return (
-      <main className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-400">読み込み中...</div>
+      <main className="flex min-h-screen items-center justify-center bg-[var(--lp-bg)]">
+        <div className="text-[var(--muted-foreground)]">読み込み中...</div>
       </main>
     );
   }
 
   if (!room) {
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center gap-4">
-        <div className="text-gray-500">ルームが見つかりません</div>
-        <button onClick={() => router.push("/")} className="btn-primary">
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[var(--lp-bg)] px-6">
+        <p className="text-[var(--muted-foreground)]">ルームが見つかりません</p>
+        <button type="button" onClick={() => router.push("/")} className="btn-primary">
           トップに戻る
         </button>
       </main>
@@ -236,19 +323,22 @@ export default function RoomPage({ params }: RoomPageProps) {
     const hasHost = room.participants.some((p) => p.isHost);
 
     return (
-      <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+      <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--lp-bg)] px-6 py-12">
         <div className="w-full max-w-md space-y-8">
-          <div className="text-center space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">
-              Design Story Point
+          <div className="space-y-4 text-center">
+            <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)]">
+              <Link
+                href="/"
+                className="rounded-sm text-inherit no-underline transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--foreground)]"
+              >
+                Design Story Point
+              </Link>
             </h1>
-            <p className="text-gray-500">
-              ルームに参加するには名前を入力してください
-            </p>
+            <p className="text-[var(--muted-foreground)]">ルームに参加するには名前を入力してください</p>
           </div>
 
-          <div className="card-shadow rounded-3xl p-6 space-y-4 bg-white">
-            <div className="flex items-center justify-between text-sm text-gray-500">
+          <div className="card-shadow space-y-4 rounded-3xl bg-white p-6">
+            <div className="flex items-center justify-between text-sm text-[var(--muted-foreground)]">
               <span className="font-mono">Room: {roomId}</span>
               <span className="flex items-center gap-1">
                 <Users size={16} />
@@ -315,6 +405,11 @@ export default function RoomPage({ params }: RoomPageProps) {
             )}
           </div>
         </div>
+        <footer className="mt-12 text-center">
+          <Link href="/" className="link-muted text-sm underline underline-offset-2">
+            サイトTOPに戻る
+          </Link>
+        </footer>
       </main>
     );
   }
@@ -325,29 +420,43 @@ export default function RoomPage({ params }: RoomPageProps) {
   const allVoted = totalCount > 0 && votedCount === totalCount;
 
   return (
-    <main className="min-h-screen px-6 py-8">
-      <div className="max-w-4xl mx-auto page-sections">
+    <main className="min-h-screen bg-[var(--lp-bg)] px-4 py-6 sm:px-6 sm:py-8">
+      <div className="page-sections mx-auto max-w-4xl">
         {/* Header */}
-        <header className="section flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="heading-lg">Design Story Point</h1>
+        <header className="section flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="heading-lg">
+                <Link
+                  href="/"
+                  className="rounded-sm text-inherit no-underline transition-opacity hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--foreground)]"
+                >
+                  Design Story Point
+                </Link>
+              </h1>
               {isHost && (
-                <span className="badge">
+                <span className="badge max-w-full truncate">
                   <Crown size={12} />
                   ホスト: {myName}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-2">
               <span className="font-mono text-sm text-[var(--muted-foreground)]">Room: {roomId}</span>
               <button
+                type="button"
                 onClick={handleCopyRoomUrl}
                 className="flex items-center gap-1 link-muted transition-colors"
                 title="参加者用URLをコピー"
               >
                 {copied ? <Check size={16} /> : <Copy size={16} />}
               </button>
+              {isHost ? (
+                <button type="button" onClick={() => setNotionModalOpen(true)} className="btn-notion-cta">
+                  <Database size={12} aria-hidden />
+                  Notion連携
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="flex items-center gap-2 text-caption">
@@ -360,7 +469,22 @@ export default function RoomPage({ params }: RoomPageProps) {
         {isHost && (
           <section className="section card bg-[var(--background)]">
             <h2 className="section-title">タスク設定</h2>
+            {notionPushHint ? (
+              <p className="text-caption mb-2 rounded-xl bg-amber-50 px-3 py-2 text-amber-950">{notionPushHint}</p>
+            ) : null}
             <div className="section-content">
+              {linkedNotionPageId && !room.currentTask ? (
+                <p className="text-caption flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-[var(--muted)] px-2 py-0.5 font-medium text-[var(--foreground)]">Notion と紐づけ予定</span>
+                  <button
+                    type="button"
+                    className="link-muted underline underline-offset-2"
+                    onClick={() => setLinkedNotionPageId(null)}
+                  >
+                    解除
+                  </button>
+                </p>
+              ) : null}
               <input
                 type="text"
                 placeholder="タスク名を入力"
@@ -368,25 +492,25 @@ export default function RoomPage({ params }: RoomPageProps) {
                 onChange={(e) => setTaskName(e.target.value)}
                 className="input-field w-full"
               />
-              <div className="flex gap-3">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
                 <input
                   type="url"
                   placeholder="GitHub or Figma URL（任意）"
                   value={figmaUrl}
                   onChange={(e) => setFigmaUrl(e.target.value)}
-                  className="input-field flex-1"
+                  className="input-field w-full flex-1 min-w-0"
                 />
-                {figmaUrl && (
+                {figmaUrl ? (
                   <a
                     href={figmaUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn-secondary flex items-center gap-2"
+                    className="btn-secondary inline-flex shrink-0 items-center justify-center gap-2 sm:min-w-[7rem]"
                   >
                     <ExternalLink size={18} />
                     開く
                   </a>
-                )}
+                ) : null}
               </div>
               <button
                 onClick={handleStartVoting}
@@ -403,9 +527,12 @@ export default function RoomPage({ params }: RoomPageProps) {
         {room.currentTask && (
           <section className="section">
             {/* Current Task Card */}
-            <div className="card-shadow rounded-2xl p-4 bg-[var(--muted)] mb-[var(--section-title-margin)]">
+            <div className="card-shadow mb-6 rounded-2xl bg-[var(--muted)] p-4 sm:mb-8 sm:p-5">
               <p className="text-label mb-1">現在のタスク</p>
               <p className="heading-sm truncate">{room.currentTask.name}</p>
+              {room.currentTask.notionPageId ? (
+                <p className="text-caption mt-1 font-medium text-[var(--muted-foreground)]">Notion 行と同期します</p>
+              ) : null}
               {room.currentTask.figmaUrl && (
                 <a
                   href={room.currentTask.figmaUrl}
@@ -420,28 +547,45 @@ export default function RoomPage({ params }: RoomPageProps) {
             </div>
 
             {/* Voting Header */}
-            <div className="flex items-center justify-between mb-[var(--section-title-margin)]">
-              <div className="flex items-center gap-3">
-                <h2 className="section-title mb-0">
-                  {room.isVotingOpen ? "ポイントを選択" : "投票結果"}
-                </h2>
-                {room.isVotingOpen && (
-                  <span className="badge-outline">
-                    {votedCount} / {totalCount} 投票済み
-                  </span>
-                )}
-              </div>
-              {!room.isVotingOpen && stats && (
-                <div className="flex items-center gap-4 text-caption">
-                  <span>平均: <strong className="text-[var(--foreground)]">{stats.average}</strong></span>
-                  <span>最小: <strong className="text-[var(--foreground)]">{stats.min}</strong></span>
-                  <span>最大: <strong className="text-[var(--foreground)]">{stats.max}</strong></span>
-                </div>
+            <div className="mb-6 flex min-w-0 flex-wrap items-center gap-2 sm:mb-8 sm:gap-3">
+              <h2 className="section-title mb-0">
+                {room.isVotingOpen ? "ポイントを選択" : "投票結果"}
+              </h2>
+              {room.isVotingOpen && (
+                <span className="badge-outline shrink-0">
+                  {votedCount} / {totalCount} 投票済み
+                </span>
               )}
             </div>
 
+            {!room.isVotingOpen && stats && (
+              <div className="mb-8 px-1 py-2 sm:mb-10 sm:px-2 sm:py-3">
+                <p className="mb-5 text-sm font-bold text-[var(--foreground)]">集計</p>
+                <div className="flex flex-col gap-5 sm:flex-row sm:flex-wrap sm:items-baseline sm:gap-x-10 sm:gap-y-4">
+                  <p className="text-lg font-bold leading-tight text-[var(--foreground)] sm:text-xl">
+                    平均:{" "}
+                    <strong className="text-3xl font-bold tabular-nums tracking-tight text-[var(--foreground)] sm:text-4xl">
+                      {stats.average}
+                    </strong>
+                  </p>
+                  <p className="text-lg font-bold leading-tight text-[var(--foreground)] sm:text-xl">
+                    最小:{" "}
+                    <strong className="text-3xl font-bold tabular-nums tracking-tight text-[var(--foreground)] sm:text-4xl">
+                      {stats.min}
+                    </strong>
+                  </p>
+                  <p className="text-lg font-bold leading-tight text-[var(--foreground)] sm:text-xl">
+                    最大:{" "}
+                    <strong className="text-3xl font-bold tabular-nums tracking-tight text-[var(--foreground)] sm:text-4xl">
+                      {stats.max}
+                    </strong>
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Point Cards */}
-            <div className="grid grid-cols-4 sm:grid-cols-7 gap-3">
+            <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
               {FIBONACCI_POINTS.map((point) => (
                 <PointCard
                   key={point}
@@ -467,12 +611,12 @@ export default function RoomPage({ params }: RoomPageProps) {
                   </button>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3">
-                      <span className="text-caption">決定ポイント:</span>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                      <span className="text-sm font-semibold text-[var(--foreground)]">決定ポイント</span>
                       <select
                         value={finalPoint ?? ""}
                         onChange={(e) => setFinalPoint(Number(e.target.value) as FibonacciPoint)}
-                        className="input-field py-2 border-[var(--foreground)] border-2"
+                        className="select-decision-point input-field max-w-[12rem] rounded-xl border-2 py-2"
                       >
                         <option value="">選択...</option>
                         {FIBONACCI_POINTS.map((p) => (
@@ -522,6 +666,28 @@ export default function RoomPage({ params }: RoomPageProps) {
           />
         )}
       </div>
+
+      <footer className="mt-10 border-t border-[var(--lp-border)] pt-8 text-center sm:mt-12 sm:pt-10">
+        <Link href="/" className="link-muted text-sm underline underline-offset-2">
+          サイトTOPに戻る
+        </Link>
+      </footer>
+
+      {isHost ? (
+        <NotionRoomConnectModal
+          open={notionModalOpen}
+          onClose={() => setNotionModalOpen(false)}
+          roomId={roomId}
+          isPremium={premiumFlags.premium}
+          notionOAuth={premiumFlags.notionOAuth}
+          onRefreshPremium={() => void refreshPremium()}
+          onApplyTask={(row) => {
+            setTaskName(row.title);
+            setFigmaUrl(row.url ?? "");
+            setLinkedNotionPageId(row.pageId);
+          }}
+        />
+      ) : null}
     </main>
   );
 }

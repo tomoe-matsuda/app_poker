@@ -16,6 +16,8 @@ export interface Task {
   name: string;
   figmaUrl?: string;
   description?: string;
+  /** Notion データベース行との同期用（ホストのセッション連携時） */
+  notionPageId?: string;
 }
 
 export interface Participant {
