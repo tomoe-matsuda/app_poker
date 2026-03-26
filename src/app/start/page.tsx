@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Crown, Users, Plus, Copy, Check, Link } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 import { createRoom, checkRoomExists, extractRoomIdFromUrl, checkRoomAndJoin } from "@/lib/room";
 
 type Mode = "initial" | "host" | "participant";
@@ -79,6 +80,7 @@ export default function StartPage() {
       const roomUrl = `${window.location.origin}/room/${newRoomId}`;
       setCreatedRoomId(newRoomId);
       setCreatedRoomUrl(roomUrl);
+      trackEvent("room_create", { max_participants: count });
     } catch (err) {
       setError(friendlyFirestoreError(err, "ルームの作成に失敗しました"));
       console.error(err);
@@ -108,6 +110,7 @@ export default function StartPage() {
     try {
       const result = await checkRoomAndJoin(createdRoomId, userName.trim(), true);
       if (result.success) {
+        trackEvent("start_enter_room", { room_id: createdRoomId, role: "host" });
         if (typeof window !== "undefined") {
           localStorage.setItem(`room_${createdRoomId}_isHost`, "true");
         }
@@ -147,6 +150,7 @@ export default function StartPage() {
 
       const result = await checkRoomAndJoin(roomId, userName.trim(), false);
       if (result.success) {
+        trackEvent("start_enter_room", { room_id: roomId, role: "participant" });
         if (typeof window !== "undefined") {
           localStorage.setItem(`room_${roomId}_isHost`, "false");
         }
@@ -173,7 +177,7 @@ export default function StartPage() {
   };
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[var(--lp-bg)] px-6 py-12">
       <div className="w-full max-w-md space-y-10">
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)]">Design Story Point</h1>
