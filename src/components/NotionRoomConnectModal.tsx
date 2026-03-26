@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Database, Loader2, Shield, Sparkles, X } from "lucide-react";
-import { saveNotionRoomMeta, clearNotionRoomMeta, type NotionRoomMeta } from "@/lib/notion-room-meta";
+import { saveNotionRoomMeta, clearNotionRoomMeta } from "@/lib/notion-room-meta";
 
 export type NotionTaskRow = {
   pageId: string;
